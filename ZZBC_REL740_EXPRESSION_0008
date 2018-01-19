@@ -1,0 +1,16 @@
+REPORT zzbc_rel740_expression_0008 .
+
+*-> hier folgendes Problem es kann nicht direkt vie Inline De. zugewiesen werden
+TYPES: ty_mara TYPE SORTED TABLE OF mara WITH NON-UNIQUE KEY mtart.
+DATA: lt_mara TYPE ty_mara.
+TYPES: tt_srt_mats TYPE SORTED TABLE OF mara WITH NON-UNIQUE KEY mtart.
+DATA: lt_materials TYPE TABLE OF mara.
+DATA: lv_mtart TYPE mara-mtart VALUE 'ZHAW'.
+
+BREAK-POINT.
+
+SELECT * FROM mara INTO TABLE @lt_mara UP TO 1000 ROWS.
+
+DATA(lt_mtart) = FILTER #( lt_mara WHERE mtart = lv_mtart ).
+
+BREAK-POINT.

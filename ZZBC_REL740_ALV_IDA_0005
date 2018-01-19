@@ -1,0 +1,75 @@
+*-----------------------------------------------------------------------
+* ZWECK:  ALV IDA
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_alv_ida_0005.
+
+DATA: lo_cnt_bottom TYPE REF TO cl_gui_docking_container.
+DATA: lo_cnt_right TYPE REF TO cl_gui_docking_container.
+DATA: lo_alv_bottom TYPE REF TO if_salv_gui_table_ida.
+DATA: lo_alv_right TYPE REF TO if_salv_gui_table_ida.
+DATA: lo_collector_bottom TYPE REF TO cl_salv_range_tab_collector.
+DATA: lo_collector_right TYPE REF TO cl_salv_range_tab_collector.
+
+DATA: lv_arbgb TYPE t100-arbgb.
+DATA: lv_msg TYPE t100-msgnr.
+DATA: lv_text TYPE t100-text.
+DATA: lv_mtart TYPE mara-mtart.
+
+* Selektionskriterien für T100
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE title1.
+SELECT-OPTIONS: s_langu FOR sy-langu.
+SELECT-OPTIONS: s_arbgb FOR lv_arbgb.
+SELECT-OPTIONS: s_msg FOR lv_msg.
+SELECT-OPTIONS: s_text FOR lv_text.
+SELECTION-SCREEN END OF BLOCK b1.
+
+* Selektionskriterien für MARA
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE title2.
+SELECT-OPTIONS: s_mtart FOR lv_mtart.
+SELECTION-SCREEN END OF BLOCK b2.
+
+AT SELECTION-SCREEN OUTPUT.
+
+* Verhindern, dass der Container mehrfach erzeugt wird, wenn der Focus aus
+* best. Oberflächenelementen zurück kommt.
+  IF NOT lo_cnt_bottom IS BOUND.
+* Container unten erzeugen
+    lo_cnt_bottom = NEW #( repid = sy-repid
+                          dynnr = sy-dynnr
+                          side = cl_gui_docking_container=>dock_at_bottom  " unterer Bildschirmrand
+                          extension = 300 ).                               " 300 hoch, damit die Selektionskriterien nicht überdeckt werden
+
+* Container rechts erzeugen
+    lo_cnt_right = NEW #( repid = sy-repid
+                         dynnr = sy-dynnr
+                         side = cl_gui_docking_container=>dock_at_right  " rechter Bildschirmrand
+                         extension = 800 ).                              " 800 breit, damit die Selektionskriterien nicht überdeckt werden
+
+
+* IDA-Grid unten erzeugen
+    lo_alv_bottom = cl_salv_gui_table_ida=>create( iv_table_name    = 'MARA'
+                                                  io_gui_container = lo_cnt_bottom ).
+    lo_alv_bottom->display_options( )->set_title( 'MARA' ).
+
+* IDA-Grid rechts erzeugen
+    lo_alv_right = cl_salv_gui_table_ida=>create( iv_table_name    = 'T100'
+                                                 io_gui_container = lo_cnt_right ).
+    lo_alv_right->display_options( )->set_title( 'T100' ).
+
+* Suchkriterien unten setzen
+    lo_collector_bottom = NEW #( ).
+    lo_collector_bottom->add_ranges_for_name( iv_name = 'MTART' it_ranges = s_mtart[] ).
+    lo_collector_bottom->get_collected_ranges( IMPORTING et_named_ranges = DATA(it_name_range_pairs_bottom) ).
+
+    lo_alv_bottom->set_select_options( it_ranges = it_name_range_pairs_bottom ).
+
+* Suchkriterien rechts setzen
+    lo_collector_right = NEW #( ).
+    lo_collector_right->add_ranges_for_name( iv_name = 'SPRSL' it_ranges = s_langu[] ).
+    lo_collector_right->add_ranges_for_name( iv_name = 'ARBGB' it_ranges = s_arbgb[] ).
+    lo_collector_right->add_ranges_for_name( iv_name = 'MSGNR' it_ranges = s_msg[] ).
+    lo_collector_right->add_ranges_for_name( iv_name = 'TEXT' it_ranges = s_text[] ).
+    lo_collector_right->get_collected_ranges( IMPORTING et_named_ranges = DATA(it_name_range_pairs_right) ).
+
+    lo_alv_right->set_select_options( it_ranges = it_name_range_pairs_right ).
+  ENDIF.

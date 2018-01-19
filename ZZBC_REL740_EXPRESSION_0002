@@ -1,0 +1,39 @@
+*-----------------------------------------------------------------------
+* ZWECK: SQL Expressions
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_expression_0002.
+
+TYPES: BEGIN OF ty_itab,
+         vbeln TYPE vbak-vbeln,
+       END OF ty_itab.
+
+DATA: gs_itab TYPE ty_itab.
+
+*--------------------------------------------------------------------*
+SELECT-OPTIONS: s_vbeln FOR gs_itab-vbeln.
+
+*--------------------------------------------------------------------*
+INITIALIZATION.
+
+  BREAK-POINT.
+
+  SELECT  'I'   AS sign,
+          'EQ'  AS option,
+          vbeln AS low
+     FROM vbak INTO CORRESPONDING FIELDS OF TABLE
+                           @s_vbeln UP TO 100 ROWS.
+
+*--------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  SELECT vbeln AS sales_order_id,
+  vkorg AS verkaufsorganistaion,
+  vtweg AS vertriebsweg
+  FROM vbak INTO TABLE @DATA(lt_data)
+    WHERE vbeln IN @s_vbeln.
+
+  BREAK-POINT.
+
+** *** Write and display the data ***
+  cl_demo_output=>display_data( name = 'VBAK'
+  value = lt_data ).

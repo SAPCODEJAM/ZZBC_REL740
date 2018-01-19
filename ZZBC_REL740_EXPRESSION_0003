@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK: SQL Expressions
-*-----------------------------------------------------------------------
+*** Inline Deklaration SQL / Ausdrücke ***
 REPORT zzbc_rel740_expression_0003.
 
 DATA lv_others TYPE vbak-netwr.

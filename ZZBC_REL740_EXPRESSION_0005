@@ -1,0 +1,127 @@
+*** Inline Deklaration / Switch ***
+
+REPORT zzbc_rel740_expression_0005.
+
+DATA: lv_flag TYPE flag.
+
+*--------------------------------------------------------------------*
+*Achtung: erster Ausdruck definiert den Zieltypen
+
+BREAK-POINT.
+
+*--------------------------------------------------------------------*
+* erster Eintrag 2 Stellen
+*--------------------------------------------------------------------*
+DATA(lv_language) = SWITCH #( sy-langu WHEN 'D' THEN 'DE'
+                                       WHEN 'F' THEN 'FR' ).
+
+cl_demo_output=>write( lv_language ).
+
+BREAK-POINT.
+
+*--------------------------------------------------------------------*
+* erster Eintrag 3 Stellen
+*--------------------------------------------------------------------*
+DATA(lv_language1) = SWITCH #( sy-langu WHEN 'D' THEN 'DER'
+                                        WHEN 'F' THEN 'FR' ).
+
+cl_demo_output=>write( lv_language1 ).
+
+BREAK-POINT.
+*--------------------------------------------------------------------*
+*-einfache abfrage
+*--------------------------------------------------------------------*
+DATA(lv_status) = SWITCH #( lv_flag
+                              WHEN 'X' THEN 'ok'
+                              ELSE 'falsch'
+                          ).
+
+cl_demo_output=>write( lv_status ).
+
+BREAK-POINT.
+
+*--------------------------------------------------------------------*
+* wenn der String gefunden wird wird ausgetauscht
+* sonst wird eine 0 eingefügt
+*--------------------------------------------------------------------*
+
+DATA(lv_text) = NEW char10( 'ABCD@#@#' ).
+DATA(lv_output) = NEW char10( ).
+
+DO 10 TIMES.
+  DATA(lv_offset) = NEW i( sy-index - 1 ).
+  DATA(lv_char_part) = NEW char1( lv_text->*+lv_offset->*(1) ).
+
+  DATA(lv_new_part) =
+    SWITCH char1( lv_char_part->*
+                  WHEN 'A' THEN 'Z'
+                  WHEN 'B' THEN 'Y'
+                  WHEN 'C' THEN 'X'
+                  WHEN 'D' THEN 'W'
+                  ELSE 0
+    ).
+  lv_output->*+lv_offset->*(1) = lv_new_part.
+ENDDO.
+
+cl_demo_output=>write( lv_output->* ).
+
+BREAK-POINT.
+
+
+*--------------------------------------------------------------------*
+* mit LET IN arbeiten -> mittels Schrittweise im Debugger
+*  kann gut verfolgt werden wie es funktioniert
+*--------------------------------------------------------------------*
+DATA(lv_text1) = NEW char10( 'ABCD@#@#' ).
+DATA(lv_output1) = NEW char10( ).
+
+DO 10 TIMES.
+  DATA(lv_offset1) = NEW i( sy-index - 1 ).
+  DATA(lv_char_part1) = NEW char1( lv_text1->*+lv_offset1->*(1) ).
+  DATA(lv_new_part1) =
+    SWITCH char1( LET x = '*' IN   "<<
+                  lv_char_part1->*
+                  WHEN 'A' THEN 'Z'
+                  WHEN 'B' THEN 'Y'
+                  WHEN 'C' THEN 'X'
+                  WHEN 'D' THEN 'W'
+                  WHEN space THEN x    "<<
+                  ELSE 0
+    ).
+  lv_output1->*+lv_offset1->*(1) = lv_new_part1.
+ENDDO.
+
+cl_demo_output=>write( lv_output1->* ).
+
+BREAK-POINT.
+
+*--------------------------------------------------------------------*
+* mit LET und WHEN
+*--------------------------------------------------------------------*
+DATA(lv_text2) = NEW char10( 'ABCD@#@#' ).
+DATA(lv_output2) = NEW char10( ).
+
+DO 10 TIMES.
+  DATA(lv_offset2) = NEW i( sy-index - 1 ).
+  DATA(lv_char_part2) = NEW char1( lv_text2->*+lv_offset2->*(1) ).
+  DATA(lv_new_part2) =
+    SWITCH char1( LET x = '*' IN
+                  lv_char_part2->*
+                  WHEN 'A' THEN 'Z'
+                  WHEN 'B' THEN 'Y'
+                  WHEN 'C' THEN 'X'
+                  WHEN 'D' THEN 'W'
+                  WHEN space THEN LET y = x IN y  "<<
+                  ELSE 0
+    ).
+  lv_output2->*+lv_offset2->*(1) = lv_new_part2.
+ENDDO.
+
+cl_demo_output=>write( lv_output2->* ).
+
+BREAK-POINT.
+
+
+*--------------------------------------------------------------------*
+
+cl_demo_output=>display( ).

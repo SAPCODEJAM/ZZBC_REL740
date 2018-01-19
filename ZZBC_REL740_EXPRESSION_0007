@@ -1,0 +1,10 @@
+*** Inline Deklaration / Konvertierung CONV ***
+REPORT zzbc_rel740_expression_0007.
+
+BREAK-POINT.
+
+DATA(lv_matnr_int) = CONV matnr( |{ '0815' ALPHA = IN }| ).
+DATA(lv_matnr_out) = CONV matnr( |{ '0816' ALPHA = OUT }| ).
+
+
+BREAK-POINT.

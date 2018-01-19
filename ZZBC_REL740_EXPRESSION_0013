@@ -1,0 +1,47 @@
+*** Inline Deklaration / Parameterübergabe ***
+REPORT zzbc_rel740_expression_0013 .
+
+PARAMETERS p_mtart TYPE mara-mtart.
+PARAMETERS p_num   TYPE i DEFAULT 200.
+
+INITIALIZATION.
+
+START-OF-SELECTION.
+  SELECT mara~matnr,mara~mtart,mara~matkl,mara~ntgew,mara~brgew,makt~maktx
+    FROM mara
+    JOIN makt ON mara~matnr = makt~matnr
+    INTO TABLE @DATA(lt_materials)
+      UP TO @p_num ROWS
+   WHERE mtart = @p_mtart
+     AND makt~spras = 'D'.
+
+  p_num = sy-dbcnt.
+
+  DATA(lv_reduced) = REDUCE string( INIT concate = VALUE string( )
+                                    FOR <row> IN lt_materials
+                                    NEXT concate = |{ concate }\n{ <row>-matnr }:{ <row>-maktx }| ).
+
+  TYPES: BEGIN OF ts_agged,
+           text   TYPE string,
+           num    TYPE i,
+           brutto TYPE mara-brgew,
+           netto  TYPE mara-ntgew,
+         END OF ts_agged.
+
+  DATA(ls_aggregated) = REDUCE ts_agged(
+    INIT agg = VALUE ts_agged( text = |Gewicht:| num = 0 brutto = 0 netto = 0 )
+    FOR <mat> IN lt_materials
+      NEXT agg-num    = agg-num + 1
+           agg-brutto = agg-brutto + <mat>-brgew
+           agg-netto  = agg-netto  + <mat>-ntgew
+           ).
+  ls_aggregated-brutto = ls_aggregated-brutto / ls_aggregated-num.
+  ls_aggregated-netto  = ls_aggregated-netto  / ls_aggregated-num.
+  DATA(lo_out)   = cl_demo_output=>new( ).
+
+  lo_out->begin_section( |Geladene Sätze: { p_num }| ).
+  lo_out->begin_section( |Filter MaterialArt: { p_mtart }| ).
+  lo_out->write( lv_reduced ).
+  lo_out->begin_section( |Durchschittswerte: { p_mtart }| ).
+  lo_out->write( ls_aggregated ).
+  lo_out->display( ).

@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK:  Inline Deklaration SQL
-*-----------------------------------------------------------------------
+*** Inline Deklaration SQL / Join tiefe Strukuren ***
 REPORT zzbc_rel740_expression_0001.
 
 * tiefe Strukturen

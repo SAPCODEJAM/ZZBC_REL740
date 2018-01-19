@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK:  SQL Expressions
-*-----------------------------------------------------------------------
+*** Inline Deklaration / Zuweisungen ***
 REPORT zzbc_rel740_expression_0004.
 
 TYPES: tt_mard TYPE SORTED TABLE OF mard WITH NON-UNIQUE DEFAULT KEY.

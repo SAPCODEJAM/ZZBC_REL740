@@ -1,0 +1,15 @@
+*** Inline Deklaration / lesender Zugriff ***
+REPORT zzbc_rel740_expression_0009 .
+
+BREAK-POINT.
+
+DATA(lt_test) = VALUE mm_t_kna1( ( kunnr = '1'
+                                   name1 = 'Muster'
+                                   name2 = 'Max' )
+                                   ( kunnr = '2'
+                                   name1 = 'Nochmal'
+                                   name2 = 'Da' ) ).
+
+DATA(lv_fullname) = |{ lt_test[ 2 ]-name1 } { lt_test[ 2 ]-name2 }|.
+
+BREAK-POINT.

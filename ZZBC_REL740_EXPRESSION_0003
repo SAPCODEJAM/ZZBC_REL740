@@ -1,0 +1,60 @@
+*-----------------------------------------------------------------------
+* ZWECK: SQL Expressions
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_expression_0003.
+
+DATA lv_others TYPE vbak-netwr.
+DATA lv_discount TYPE p LENGTH 1 DECIMALS 1 VALUE '0.8'.
+
+PARAMETERS: p_minu TYPE text30 DEFAULT 'gerechnet in minus Betrag',
+            p_disc TYPE text30 DEFAULT '20% Rabatt'.
+
+BREAK-POINT.
+
+SELECT vkorg,
+       'ABAP740' AS connector,
+       erdat AS valuta,
+       auart AS auftragsart,
+
+  CASE WHEN auart EQ 'AG' THEN ( ( netwr * @lv_discount ) )
+       WHEN auart EQ 'TA' THEN (   netwr *  -1 )
+       ELSE netwr
+   END AS betrag,
+
+  CASE WHEN auart EQ 'AG' THEN @p_disc
+       WHEN auart EQ 'TA' THEN @p_minu
+   END AS auarttext ,
+
+*-> nur mit numerischen Typen machbar !!!
+* CASE WHEN vkbur BETWEEN '0' AND '1000' THEN ( 'Büro' && '/' && vkbur )
+*      WHEN vkbur BETWEEN '1001' AND '3000' THEN ( 'Verkauf ab' && '/' && vkbur )
+*   ELSE vkbur
+*   END AS buerotext,
+
+    ( 1 + 1 ) AS zwei,
+
+    ( @lv_discount * netwr ) AS rabatt,
+
+    CAST( netwr AS FLTP ) / CAST( 2 AS FLTP ) AS halber_preis,
+
+    CEIL( netwr ) AS gerundet,
+
+    netwr AS effektiver_wert,
+
+   waerk AS whg,
+
+   @sy-datum AS uebernahmedatum,
+   @sy-uname AS insuser,
+   @sy-datum AS insdate,
+   @sy-uzeit AS instime,
+   @sy-uname AS upuser,
+   @sy-datum AS upsdate,
+   @sy-uzeit AS upstime
+FROM vbak INTO TABLE @DATA(lt_vbak) UP TO 100000 ROWS
+   WHERE netwr GT 0 OR netwr LT 0 ORDER BY auart ASCENDING.
+
+BREAK-POINT.
+
+* *** Write and display the data ***
+cl_demo_output=>display_data( name = 'SQL Ausdrücke'
+value = lt_vbak ).

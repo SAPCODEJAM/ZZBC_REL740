@@ -1,0 +1,74 @@
+*** Loop at Group by / Dubletten Check ***
+REPORT zzbc_rel740_group_by_0002.
+
+PARAMETERS: p_step TYPE i DEFAULT '100000'.
+
+* Daten holen
+SELECT kunnr,name1,name2,stras,ort01,pstlz,spras,telf1
+       FROM kna1
+         UP TO @p_step ROWS
+       INTO TABLE @DATA(lt_itab)
+       WHERE land1 = 'CH'
+         AND ort01 NE @space
+         AND pstlz NE @space
+         AND telf1 NE @space.
+
+
+DATA(lt_ort) = lt_itab.
+DATA(lt_name_ort) = lt_itab.
+FREE: lt_ort,lt_name_ort.
+
+BREAK-POINT.
+
+*--------------------------------------------------------------------*
+* Gruppieren nach Ort, Strasse, Postleitzahl,
+*--------------------------------------------------------------------*
+LOOP AT lt_itab INTO DATA(ls_itab) GROUP BY ( ort01 = ls_itab-ort01
+                                              stras = ls_itab-stras
+                                              pstlz = ls_itab-pstlz
+                                              size  = GROUP SIZE
+                                              index = GROUP INDEX )
+                                              ASCENDING ASSIGNING FIELD-SYMBOL(<group>).
+
+*--------------------------------------------------------------------*
+* Stufe tiefer hat es von der Gruppierung noch mal eine Gruppierung
+*--------------------------------------------------------------------*
+  FREE: lt_ort.
+  DATA(gr) = <group>.
+
+*  sort <group> by ort01. -> geht nicht keine ITAB ist eine Gruppe im Memory ..
+
+  LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ort>).
+    lt_ort = VALUE #( BASE lt_ort ( <ort> ) ).
+  ENDLOOP.
+
+
+
+* het es mehr als einen Eintrag für die gleichen Kritieren
+  IF <group>-size GT 1.
+    LOOP AT lt_ort INTO DATA(ls_ort) GROUP BY ( name1 = ls_ort-name1
+                                                size_o  = GROUP SIZE
+                                                index_o = GROUP INDEX )
+                                                WITHOUT MEMBERS  "Performacne gewinn wenn keine Daten nötig sind
+*                                                ASCENDING ASSIGNING FIELD-SYMBOL(<group_name>). " Sortiert werden kann nicht da ja keine daten kommen
+                                                ASSIGNING FIELD-SYMBOL(<group_name>).
+
+
+*      FREE: lt_name_ort.                                          " ohne Daten auch keine Gruppierung
+*      LOOP AT GROUP <group_name> ASSIGNING FIELD-SYMBOL(<name1>).
+*        lt_name_ort = VALUE #( BASE lt_name_ort ( <name1> ) ).
+*      ENDLOOP.
+
+      IF <group_name>-size_o GT 1.
+        "hier gibts eine Dublette
+        cl_demo_output=>write( lt_name_ort ).
+*        LOOP AT lt_name_ort ASSIGNING FIELD-SYMBOL(<dub>).
+*          cl_demo_output=>write( <dub> ).
+*        ENDLOOP.
+      ENDIF.
+
+    ENDLOOP.
+  ENDIF.
+
+ENDLOOP.
+cl_demo_output=>display( ).

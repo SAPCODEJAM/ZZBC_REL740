@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK: ALV with integrated data access (IDA) mit integriertem Datenzugriff
-*-----------------------------------------------------------------------
+*** IDA / ALV Fuzzy Logik ***
 REPORT zzbc_rel740_alv_ida_0003.
 
 SELECT-OPTIONS: s_langu FOR sy-langu.

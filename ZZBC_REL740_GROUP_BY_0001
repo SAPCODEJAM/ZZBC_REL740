@@ -1,0 +1,87 @@
+*** Loop at Group by / Laufzeit Loop vs. ***
+REPORT zzbc_rel740_group_by_0001.
+
+PARAMETERS: p_dis AS CHECKBOX DEFAULT ' '.
+PARAMETERS: p_step TYPE i DEFAULT '10000'.
+
+START-OF-SELECTION.
+
+  SELECT name1,
+         name2,
+         stras,
+         ort01,
+         pstlz
+         FROM kna1
+         UP TO @p_step ROWS
+         INTO TABLE @DATA(lt_itab)
+         WHERE land1 = 'CH'
+           AND ort01 NE @space
+           AND pstlz NE @space.
+
+
+*--------------------------------------------------------------------*
+* "alte" Version vom Loop
+*--------------------------------------------------------------------*
+
+  DATA t1 TYPE i.
+  DATA t2 TYPE i.
+  GET RUN TIME FIELD DATA(t11).
+
+  DATA(lt_ort01) = lt_itab.
+  DATA(lt_group_ort01) = lt_itab.
+
+  LOOP AT lt_ort01 ASSIGNING FIELD-SYMBOL(<ort01>).
+    LOOP AT lt_itab INTO DATA(ls_itab) WHERE ort01 = <ort01>-ort01
+                                         AND stras = <ort01>-stras
+                                         AND pstlz = <ort01>-pstlz.
+      APPEND ls_itab TO lt_group_ort01.
+    ENDLOOP.
+    IF p_dis EQ 'X'.
+      cl_demo_output=>write( lt_group_ort01 ).
+    ENDIF.
+    FREE lt_group_ort01.
+  ENDLOOP.
+
+  IF p_dis EQ 'X'.
+    cl_demo_output=>display( ).
+  ENDIF.
+
+  GET RUN TIME FIELD DATA(t12).
+  t1 = t1 + t12 - t11.
+
+  DATA(tm) = CONV decfloat34( t1 ).
+  WRITE: /0 'alte Version', 15 tm, 25 ' Micorsekunden'.
+
+*--------------------------------------------------------------------*
+* Group by
+*--------------------------------------------------------------------*
+
+  GET RUN TIME FIELD DATA(t13).
+  DATA(lt_ort) = lt_itab.
+  FREE: lt_ort.
+
+  LOOP AT lt_itab INTO DATA(ls_itab_new)
+                  GROUP BY ( ort01 = ls_itab_new-ort01
+                             stras = ls_itab_new-stras
+                             pstlz = ls_itab_new-pstlz )
+                        ASCENDING  ASSIGNING FIELD-SYMBOL(<group>).
+
+    FREE: lt_ort.
+    LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ort>).
+      lt_ort = VALUE #( BASE lt_ort ( <ort>  ) ).
+    ENDLOOP.
+    IF p_dis EQ 'X'.
+      cl_demo_output=>write( lt_ort ).
+    ENDIF.
+  ENDLOOP.
+
+  IF p_dis EQ 'X'.
+    cl_demo_output=>display( ).
+  ENDIF.
+
+  GET RUN TIME FIELD DATA(t14).
+  t2 = t2 + t14 - t13.
+
+  DATA(tm1) = CONV decfloat34( t2 ).
+
+  WRITE: /0 'neue Version', 15 tm1, 25 ' Micorsekunden'.

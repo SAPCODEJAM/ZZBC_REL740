@@ -1,0 +1,84 @@
+*-----------------------------------------------------------------------
+* ZWECK: ALV with integrated data access (IDA) mit integriertem Datenzugriff
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_alv_ida_0003.
+
+SELECT-OPTIONS: s_langu FOR sy-langu.
+
+START-OF-SELECTION.
+
+  TRY.
+      DATA(lo_ida) = cl_salv_gui_table_ida=>create( iv_table_name = 'T100' ).
+
+* SELECT-Konditionen festlegen
+      DATA(lo_cond_factory) = lo_ida->condition_factory( ).
+
+* RANGE definieren
+      DATA(lo_ranges) = NEW cl_salv_range_tab_collector( ).
+      lo_ranges->add_ranges_for_name( iv_name = 'SPRSL' it_ranges = s_langu[] ).
+      lo_ranges->get_collected_ranges( IMPORTING
+                                         et_named_ranges = DATA(lt_name_range_pairs) ).
+* RANGE definieren
+      DATA(lt_fixed_ranges) = VALUE if_salv_service_types=>yt_named_ranges(
+      ( name = 'MSGNR' sign = 'I' option = 'BT' low = '000' high = '999' ) ).
+
+      APPEND LINES OF lt_fixed_ranges TO lt_name_range_pairs.
+
+* SELECT-Konditionen und RANGES übergeben
+      lo_ida->set_select_options( it_ranges = lt_name_range_pairs
+      io_condition = lo_cond_factory->equals( name = 'SPRSL' value = sy-langu )->and(
+      lo_cond_factory->covers_pattern( name = 'TEXT' pattern = '*Fehler*')->and(
+      lo_cond_factory->equals( name = 'ARBGB' value = '00' )->or(
+      lo_cond_factory->equals( name = 'ARBGB' value = '01' ) ) ) ) ).
+
+* Spaltenüberschrift ändern
+      lo_ida->field_catalog( )->set_field_header_texts(
+       iv_field_name  = 'SPRSL'
+       iv_header_text = 'Sprache'
+       iv_tooltip_text = 'Standard: 40 Zeichen zur Verfügung'
+       iv_tooltip_text_long = 'Erweiterung: 100 Zeichen zur Verfügung bei richtiger SAP GUI und SAP Basis Version' ).
+
+* Sortierung für Spalte ausschalten
+      lo_ida->field_catalog( )->disable_sort( iv_field_name = 'MSGNR' ).
+
+* Filter ausschalten
+      lo_ida->field_catalog( )->disable_filter( iv_field_name = 'SPRSL' ).
+
+* nur bestimmte Spalten darstellen
+      DATA: lts_field_name TYPE if_salv_gui_types_ida=>yts_field_name.
+      INSERT CONV #( 'MSGNR' ) INTO TABLE lts_field_name.
+      INSERT CONV #( 'ARBGB' ) INTO TABLE lts_field_name.
+      INSERT CONV #( 'TEXT' ) INTO TABLE lts_field_name.
+      lo_ida->field_catalog( )->set_available_fields( its_field_names = lts_field_name ).
+
+* Layouts verwalten
+      lo_ida->layout_persistence( )->set_persistence_options(
+      is_persistence_key = VALUE #( report_name = sy-repid )
+      i_global_save_allowed = abap_true
+      i_user_specific_save_allowed = abap_true ).
+
+      lo_ida->toolbar( )->enable_listbox_for_layouts( ).
+
+* Titel
+      lo_ida->display_options( )->set_title( 'Überschrift' ).
+
+* Zebrastreifen
+      lo_ida->display_options( )->enable_alternating_row_pattern( ).
+
+* Authority Check
+*      lo_ida->add_authorization_for_object(
+*      iv_authorization_object = 'V_VBRK_VKO'
+*      it_activities = VALUE #( ( auth_field = 'ACTVT' value = '03' ) )
+*      it_field_mapping = VALUE #( ( auth_field = 'ACTVT' view_field = 'VKORG' ) ) ).
+
+      IF abap_true = cl_salv_gui_table_ida=>db_capabilities( )->is_text_search_supported( ).
+* unscharfe Suche -> wird nur von HANA unterstützt
+        lo_ida->text_search( )->set_field_similarity( '0.8' ).
+        lo_ida->text_search( )->set_search_term( |Fehler| ).
+      ENDIF.
+
+      lo_ida->fullscreen( )->display( ).
+
+    CATCH cx_root INTO DATA(lo_exc).
+      WRITE: / lo_exc->get_text( ).
+  ENDTRY.

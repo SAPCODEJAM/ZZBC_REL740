@@ -1,0 +1,146 @@
+*** Tabellen aufbau via RTTS ***
+REPORT zzbc_rel740_rtts_0002.
+
+TYPE-POOLS: abap.
+
+
+DATA:
+  lt_celltab          TYPE lvc_t_styl.  " becomes field of complex itab
+
+DATA:
+  lv_tabnam     TYPE string,
+  lv_tabfield   TYPE string,
+  lo_table      TYPE REF TO cl_salv_table,
+  lo_sdescr     TYPE REF TO cl_abap_structdescr,
+  lo_sdescr_new TYPE REF TO cl_abap_structdescr,
+  lo_tdescr     TYPE REF TO cl_abap_tabledescr,
+  lo_data       TYPE REF TO data,
+  lo_handle     TYPE REF TO data,
+  ls_component  TYPE abap_compdescr,
+  ls_comp       TYPE abap_componentdescr,
+  lt_components TYPE abap_component_tab.
+
+
+FIELD-SYMBOLS:
+  <lt_itab>     TYPE STANDARD TABLE.
+
+
+PARAMETER:
+  p_tabnam      TYPE tabname  DEFAULT 'KNA1'.
+
+START-OF-SELECTION.
+
+  BREAK-POINT.
+
+  " Describe structure
+  lo_sdescr ?= cl_abap_structdescr=>describe_by_name( p_tabnam ).
+  lv_tabnam     = lo_sdescr->get_relative_name( ).
+
+
+  "   Simulate dynamic addition of columns to ALV list
+  DO 5 TIMES.
+    READ TABLE lo_sdescr->components INTO ls_component INDEX syst-index.
+
+    "   Build fieldname
+    CONCATENATE lv_tabnam ls_component-name INTO lv_tabfield
+                                            SEPARATED BY '-'.
+
+    CLEAR: ls_comp.
+    ls_comp-type ?= cl_abap_datadescr=>describe_by_name( lv_tabfield ).
+    ls_comp-name  = ls_component-name.
+    APPEND ls_comp TO lt_components.
+
+    "   Create instances of dynamic structure and dynamic internal table
+    lo_sdescr_new  = cl_abap_structdescr=>create( lt_components ).
+    lo_tdescr      = cl_abap_tabledescr=>create( lo_sdescr_new ).
+    "   Create data refence followed by table creation
+    CREATE DATA lo_handle TYPE HANDLE lo_tdescr.  " !!!
+    ASSIGN lo_handle->* TO <lt_itab>.
+
+*   Dynamic select
+    SELECT        * FROM  (p_tabnam)
+      INTO CORRESPONDING FIELDS OF TABLE <lt_itab> UP TO 1000 ROWS.
+
+    TRY.
+        CALL METHOD cl_salv_table=>factory
+          IMPORTING
+            r_salv_table = lo_table
+          CHANGING
+            t_table      = <lt_itab>.
+        lo_table->display( ).
+      CATCH cx_salv_msg .
+    ENDTRY.
+  ENDDO.
+
+
+  " Display component list in order to prove that indeed the field names
+  " are used (instead of the data element names)
+  TRY.
+      CALL METHOD cl_salv_table=>factory
+        IMPORTING
+          r_salv_table = lo_table
+        CHANGING
+          t_table      = lt_components.
+      lo_table->display( ).
+    CATCH cx_salv_msg .
+  ENDTRY.
+
+
+
+  " Add table type (LVC_T_STYL) as field to structure ==> complex structure
+  CLEAR: ls_comp.
+  ls_comp-type ?= cl_abap_typedescr=>describe_by_data( lt_celltab ).
+  ls_comp-name  = 'CELLTAB'.
+  APPEND ls_comp TO lt_components.
+
+  lo_sdescr  = cl_abap_structdescr=>create( lt_components ).
+  lo_tdescr  = cl_abap_tabledescr=>create( lo_sdescr ).
+  CREATE DATA lo_handle TYPE HANDLE lo_tdescr.
+  ASSIGN lo_handle->* TO <lt_itab>.
+
+*   Dynamic select
+  SELECT        * FROM  (p_tabnam)
+    INTO CORRESPONDING FIELDS OF TABLE <lt_itab> UP TO 1000 ROWS.
+
+
+  " Show how to fill the complex itab
+  PERFORM fill_celltab.
+
+END-OF-SELECTION.
+
+
+*&---------------------------------------------------------------------*
+*&      Form  FILL_CELLTAB
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM fill_celltab .
+* define local data
+  DATA:
+    ls_cell    TYPE lvc_s_styl,
+    lt_celltab TYPE lvc_t_styl.
+
+
+  FIELD-SYMBOLS:
+    <ls_struc>   TYPE any,
+    <lt_celltab> TYPE lvc_t_styl.
+
+
+  " Create dummy entry for local CELLTAB
+  ls_cell-fieldname = 'KUNNR'.
+  ls_cell-style     = cl_gui_alv_grid=>mc_style_enabled.
+  INSERT ls_cell INTO TABLE lt_celltab.
+
+
+  LOOP AT <lt_itab> ASSIGNING <ls_struc>.
+    ASSIGN COMPONENT 'CELLTAB' OF STRUCTURE <ls_struc> TO <lt_celltab>.
+
+    <lt_celltab> = lt_celltab.
+
+    "   No MODIFY required because we are working with the field symbol
+  ENDLOOP.
+
+ENDFORM.                    " FILL_CELLTAB

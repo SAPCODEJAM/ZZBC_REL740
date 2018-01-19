@@ -1,0 +1,67 @@
+*-----------------------------------------------------------------------
+* ZWECK:  SQL Expressions
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_expression_0004.
+
+TYPES: tt_mard TYPE SORTED TABLE OF mard WITH NON-UNIQUE DEFAULT KEY.
+DATA: lt_mard1 TYPE tt_mard.
+DATA: ls_mard1 TYPE LINE OF tt_mard.
+
+BREAK-POINT.
+
+SELECT-OPTIONS: s_matnr FOR ls_mard1-matnr.
+
+
+INITIALIZATION.
+  s_matnr[] = VALUE #( ( sign = 'I' option = 'NE' low = '3' )
+                       ( sign = 'I' option = 'NE' low = '9' ) ).
+
+START-OF-SELECTION.
+
+  SELECT * FROM mara UP TO 1 ROWS INTO @DATA(ls_mara).
+  ENDSELECT.
+
+  SELECT * FROM mara INTO TABLE @DATA(lt_mara) UP TO 10000 ROWS
+    WHERE matnr NE @ls_mara-matnr.
+*--------------------------------------------------------------------*
+  TRY.
+
+      BREAK-POINT.
+
+*-Inline De.
+      READ TABLE lt_mara INTO DATA(ls_material1) INDEX 1.
+      READ TABLE lt_mara REFERENCE INTO DATA(lr_material1) INDEX 1.
+
+      ASSIGN ls_material1 TO FIELD-SYMBOL(<fs_material>).
+
+      APPEND <fs_material> TO lt_mara ASSIGNING FIELD-SYMBOL(<fs_appended>).
+      ASSIGN COMPONENT sy-index OF STRUCTURE <fs_material> TO FIELD-SYMBOL(<fs_field>).
+
+*-> 30% schneller als Loop at .. corr..
+      lt_mard1 = CORRESPONDING #( lt_mara ).
+
+*-Konstruktoren
+      DATA(lv_name) = sy-uname.
+
+      DATA(lv_matnr) = '123456'.
+
+      DATA(ls_mard) = CORRESPONDING mard( ls_mara ).
+      DATA(lt_mard) = CORRESPONDING tt_mard( lt_mara ).
+
+      ls_mard = CORRESPONDING mard(
+      lt_mara[ 1 ] MAPPING matnr = matnr  ).
+
+      DATA(ls_material)  = VALUE mara( ).
+
+      DATA(lr_material)  = NEW mara( ).
+      DATA(lo_alv_ctrl)  = NEW cl_gui_alv_grid( cl_gui_container=>default_screen ).
+
+
+      DATA(lo_describer) = cl_abap_typedescr=>describe_by_name('MARA').
+
+    CATCH cx_sy_itab_line_not_found INTO DATA(lo_er).
+      MESSAGE lo_er TYPE 'I' .
+
+  ENDTRY.
+
+  BREAK-POINT.

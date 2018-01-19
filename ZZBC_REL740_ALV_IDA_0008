@@ -1,0 +1,338 @@
+*-----------------------------------------------------------------------
+* ZWECK:  ALV IDA
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_alv_ida_0008.
+
+TYPES: ty_proz TYPE if_salv_ida_text_search=>y_field_similarity .
+
+DATA: lo_ida TYPE REF TO if_salv_gui_table_ida.
+DATA: lv_TABNAME TYPE DD02T-TABNAME.
+
+CLASS lcl_event_handler DEFINITION.
+  PUBLIC SECTION.
+
+    INTERFACES: if_salv_ida_calc_field_handler.
+
+    CLASS-METHODS: toolbar_function_selected FOR EVENT function_selected OF if_salv_gui_toolbar_ida
+      IMPORTING
+          ev_fcode.
+
+    CLASS-METHODS: double_click FOR EVENT double_click OF if_salv_gui_table_display_opt
+      IMPORTING
+          ev_field_name
+          eo_row_data.
+
+    CLASS-METHODS: cell_action FOR EVENT cell_action OF if_salv_gui_field_display_opt
+      IMPORTING
+          ev_field_name
+          eo_row_data.
+
+  PRIVATE SECTION.
+    TYPES:
+      BEGIN OF ty_calc_field,
+        icon   TYPE c LENGTH 4,
+        button TYPE lvc_value,
+      END OF ty_calc_field.
+
+ENDCLASS.
+
+CLASS lcl_event_handler IMPLEMENTATION.
+
+  METHOD toolbar_function_selected.
+    DATA: ls_DD02T TYPE DD02T.
+
+    CASE ev_fcode.
+
+* Wenn Button-Funktion
+      WHEN 'ZDETAIL'.
+
+        IF abap_true = lo_ida->selection( )->is_row_selected( ).
+* ganzen Datensatz holen
+          lo_ida->selection( )->get_selected_row( EXPORTING
+                                                   iv_request_type = if_salv_gui_selection_ida=>cs_request_type-all_fields
+                                                 IMPORTING
+                                                   es_row = ls_DD02T ).
+* Datensatz anzeigen
+          cl_salv_ida_show_data_row=>display( iv_text = 'Details'
+                                              is_data = ls_DD02T  ).
+        ENDIF.
+    ENDCASE.
+  ENDMETHOD.
+
+  METHOD double_click.
+    DATA: ls_DD02T TYPE DD02T.
+
+    eo_row_data->get_row_data( EXPORTING
+                                 iv_request_type = if_salv_gui_selection_ida=>cs_request_type-all_fields
+                               IMPORTING
+                                 es_row =  ls_DD02T  ).
+
+    cl_salv_ida_show_data_row=>display( iv_text = |Datenfeld: { ev_field_name }|
+                                        is_data = ls_DD02T  ).
+
+  ENDMETHOD.
+
+  METHOD cell_action.
+    TYPES: BEGIN OF ty_line.
+            INCLUDE TYPE DD02T.
+            INCLUDE TYPE ty_calc_field.
+    TYPES: END OF ty_line.
+
+    DATA: ls_DD02T TYPE ty_line.
+
+    eo_row_data->get_row_data( EXPORTING
+                                 iv_request_type = if_salv_gui_selection_ida=>cs_request_type-all_fields
+                               IMPORTING
+                                 es_row = ls_DD02T ).
+
+    cl_salv_ida_show_data_row=>display( iv_text = |Datenfeld: { ev_field_name }|
+                                        is_data = ls_DD02T ).
+  ENDMETHOD.
+
+* Deklaration für zus. Felder ICON und BUTTON zurückgeben
+  METHOD if_salv_ida_calc_field_handler~get_calc_field_structure.
+
+    DATA: ls_calc_field TYPE ty_calc_field.
+    ro_calc_field_structure ?= cl_abap_structdescr=>describe_by_data( ls_calc_field ).
+
+  ENDMETHOD.
+
+  METHOD if_salv_ida_calc_field_handler~get_requested_fields.
+  ENDMETHOD.
+
+  METHOD if_salv_ida_calc_field_handler~calculate_line.
+
+    DATA: ls_DD02T TYPE DD02T.
+    DATA: ls_calc_field TYPE ty_calc_field.
+
+    ls_DD02T = is_data_base_line.
+
+    DATA(lv_lang) = ls_DD02T-ddlanguage.
+
+    IF lv_lang = 'E'.
+      ls_calc_field-icon   = icon_red_light.
+      ls_calc_field-button = '@02@'. " Icon 'Delete' für Button
+    ELSEIF lv_lang = 'D'.
+      ls_calc_field-icon   = icon_green_light.
+      ls_calc_field-button = '@01@'. " Icon 'Ok' für Button
+    ELSE.
+      ls_calc_field-icon   = icon_yellow_light.
+      ls_calc_field-button = '@03@'. " kein Icon für Button
+    ENDIF.
+
+    es_calculated_fields = ls_calc_field.
+
+  ENDMETHOD.
+
+  METHOD if_salv_ida_calc_field_handler~start_page.
+  ENDMETHOD.
+
+  METHOD if_salv_ida_calc_field_handler~end_page.
+  ENDMETHOD.
+
+ENDCLASS.
+*--------------------------------------------------------------------*
+
+*--------------------------------------------------------------------*
+SELECTION-SCREEN BEGIN OF BLOCK s1 WITH FRAME.
+SELECT-OPTIONS: s_TAB FOR lv_TABNAME.
+SELECTION-SCREEN END OF BLOCK s1.
+
+SELECTION-SCREEN BEGIN OF BLOCK s2 WITH FRAME.
+PARAMETERS: p_search TYPE DD02T-DDTEXT MODIF ID src,
+            p_proz   TYPE ty_proz DEFAULT '0.9' MODIF ID src.
+SELECTION-SCREEN END OF BLOCK s2.
+*--------------------------------------------------------------------*
+
+INITIALIZATION.
+
+  " machbar Suchstring ?
+  DATA(lv_is_text_search_supported) =
+      cl_salv_gui_table_ida=>db_capabilities( )->is_text_search_supported( ).
+
+AT SELECTION-SCREEN OUTPUT.
+
+  " nur anzeigen wenn auch machbar
+  LOOP AT SCREEN.
+    IF lv_is_text_search_supported <> abap_true AND screen-group1 = 'SRC'.
+      screen-active = '0'.
+    ELSE.
+      screen-active = '1'.
+    ENDIF.
+    MODIFY SCREEN.
+  ENDLOOP.
+
+*--------------------------------------------------------------------*
+
+START-OF-SELECTION.
+
+  TRY.
+
+      DATA(lo_handler) = NEW lcl_event_handler( ).
+
+*-Tabelle übergeben -> Tabelle / View oder CDS
+      lo_ida =  cl_salv_gui_table_ida=>create( iv_table_name         = 'DD02T'
+                                               io_calc_field_handler = lo_handler ).
+*
+*--------------------------------------------------------------------*
+*-Select-Option einbinden
+      DATA(lo_collector) = NEW cl_salv_range_tab_collector( ).
+
+      lo_collector->add_ranges_for_name( iv_name = 'TABNAME' it_ranges = s_TAB[] ).
+      lo_collector->get_collected_ranges( IMPORTING et_named_ranges = DATA(lt_name_range_pairs) ).
+      lo_ida->set_select_options( it_ranges = lt_name_range_pairs ).
+*
+*--------------------------------------------------------------------*
+*-Felder bearbeiten
+*--alles holen
+*    lo_ida->field_catalog( )->get_available_fields(
+*    IMPORTING ets_field_names = DATA(lt_available_fields) ).
+*
+**löschen
+*    DELETE lt_available_fields WHERE table_line CP 'TAXM*'.
+
+* nur bestimmte Spalten darstellen
+      DATA: lt_field_name TYPE if_salv_gui_types_ida=>yts_field_name.
+      INSERT CONV #( 'TABNAME' ) INTO TABLE lt_field_name.
+      INSERT CONV #( 'DDLANGUAGE' ) INTO TABLE lt_field_name.
+      INSERT CONV #( 'DDTEXT' ) INTO TABLE lt_field_name.
+      INSERT CONV #( 'ICON' ) INTO TABLE lt_field_name.
+
+      lo_ida->field_catalog( )->set_available_fields( its_field_names = lt_field_name ).
+
+*-neu Felder
+*    lo_ida->field_catalog( )->set_available_fields(
+*    EXPORTING its_field_names = lt_available_fields ).
+
+*-Felder anzeigen
+      lo_ida->default_layout( )->get_visible_fields( ).
+*
+*--------------------------------------------------------------------*
+* Tooltips für Icons
+      DATA: lt_icon_tooltip TYPE if_salv_gui_types_ida=>yts_icon_tooltip.
+
+      INSERT VALUE #( icon    = icon_yellow_light
+                      tooltip = 'nicht Deutsch' ) INTO TABLE lt_icon_tooltip.
+
+      INSERT VALUE #( icon    = icon_green_light
+                      tooltip = 'Deutsch' ) INTO TABLE lt_icon_tooltip.
+
+      INSERT VALUE #( icon    = icon_red_light
+                      tooltip = 'immer noch nicht Deutsch' ) INTO TABLE lt_icon_tooltip.
+
+      lo_ida->field_catalog( )->display_options( )->set_tooltip_for_icons(
+      iv_field_name = 'ICON'
+      its_tooltips  = lt_icon_tooltip ).
+
+**--------------------------------------------------------------------*
+*-Spaltenüberschrift
+      lo_ida->field_catalog( )->set_field_header_texts( iv_field_name   = 'TABNAME'
+                                                        iv_header_text  = 'Tabällä'
+                                                        iv_tooltip_text = 'Tooltip Tabällä' ).
+
+*--------------------------------------------------------------------*
+*-Standardfunktionen auf Feldebene ausschalten
+
+**-Summierung
+*      lo_ida->field_catalog( )->disable_aggregation( 'ZMENG' ).
+*
+*-Sortierung
+      lo_ida->field_catalog( )->disable_sort( 'DDTEXT' ).
+*
+**-Filter
+*      lo_ida->field_catalog( )->disable_filter( 'PSTYV' ).
+
+*-Text Suche
+      lo_ida->field_catalog( )->enable_text_search( 'DDTEXT' ).
+
+*      lo_ida->field_catalog( )->display_options( )->set_formatting( iv_field_name = 'ARKTX'
+*      iv_presentation_mode = if_salv_gui_types_ida=>cs_presentation_mode-description ).
+
+*--------------------------------------------------------------------*
+* Layout
+* Zebra
+      lo_ida->display_options( )->enable_alternating_row_pattern( ).
+
+* Titel
+      lo_ida->display_options( )->set_title( 'DEMO ALV IDA komplett' ).
+
+
+
+*--------------------------------------------------------------------*
+* Sortierung / Gruppierung
+*      lo_ida->default_layout( )->set_sort_order(
+*      VALUE #( ( field_name = 'TABNAME' is_grouped = abap_true descending = abap_true )
+*               ( field_name = 'DDLANGUAGE' is_grouped = abap_true descending = abap_true ) ) ).
+
+
+*--------------------------------------------------------------------*
+* Standard Funktionen einblenden/ ausblenden
+
+*-Summierung
+*      lo_ida->standard_functions( )->set_aggregation_active( iv_active = abap_true ).
+*
+*-nicht drucken
+*      lo_ida->standard_functions( )->set_print_active( iv_active = abap_false ).
+*
+*-Textsuche einschalten -> alle Felder
+*      lo_ida->standard_functions( )->set_text_search_active( iv_active = abap_true ).
+
+*--------------------------------------------------------------------*
+*-Toolbar
+      lo_ida->toolbar( )->add_separator( EXPORTING iv_before_standard_functions = abap_true ).
+      lo_ida->toolbar( )->add_button( EXPORTING iv_fcode = 'ZDETAIL'
+                                                iv_text  = 'mein Detail'
+                                                iv_icon  = icon_select_detail
+                                                iv_quickinfo = 'mein Detail Auftrag'
+                                                iv_before_standard_functions = abap_true ).
+
+*--------------------------------------------------------------------*
+* Event Handler
+      SET HANDLER lcl_event_handler=>toolbar_function_selected FOR lo_ida->toolbar( ).
+
+* Double-Click für alle Zellen
+      lo_ida->display_options( )->enable_double_click( ).
+      SET HANDLER lcl_event_handler=>double_click FOR lo_ida->display_options( ).
+
+* Zellen der Spalte 'TABNAME' sind klickbar
+      lo_ida->field_catalog( )->display_options( )->display_as_link_to_action( iv_field_name = 'TABNAME' ).
+      SET HANDLER lcl_event_handler=>cell_action FOR lo_ida->field_catalog( )->display_options( ).
+
+*--------------------------------------------------------------------*
+* Einzel Auftruf
+*      lo_ida->selection( )->set_selection_mode( if_salv_gui_selection_ida=>cs_selection_mode-single ).
+*--------------------------------------------------------------------*
+* Varianten
+      lo_ida->layout_persistence( )->set_persistence_options(
+      is_persistence_key = VALUE #( report_name = sy-repid )
+      i_global_save_allowed = abap_true
+      i_user_specific_save_allowed = abap_true ).
+
+      lo_ida->toolbar( )->enable_listbox_for_layouts( ).
+
+*--------------------------------------------------------------------*
+*-Berechtigung
+*    lo_ida->add_authorization_for_object(
+*    iv_authorization_object = 'V_VBRK_VKO'
+*    it_activities = VALUE #( ( auth_field = 'ACTVT' value = '03' ) )
+*    it_field_mapping = VALUE #( ( auth_field = 'ACTVT' view_field = 'VKORG' ) ) ).
+
+*--------------------------------------------------------------------*
+* Textsuche
+      IF p_search IS NOT INITIAL.
+        IF abap_true = cl_salv_gui_table_ida=>db_capabilities( )->is_text_search_supported( ).
+* unscharfe Suche -> wird nur von HANA unterstützt
+          lo_ida->text_search( )->set_field_similarity(  p_proz  ).
+          lo_ida->text_search( )->set_search_term( | { p_search } | ).
+        ENDIF.
+      ENDIF.
+
+      lo_ida->fullscreen( )->display( ).
+    CATCH cx_salv_db_connection
+          cx_salv_db_table_not_supported
+          cx_salv_ida_contract_violation
+          cx_root
+      INTO DATA(lo_exc).
+      MESSAGE lo_exc TYPE 'I'.
+
+  ENDTRY.

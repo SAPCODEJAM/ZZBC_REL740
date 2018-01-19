@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK:  Inline Deklaration SQL
-*-----------------------------------------------------------------------
+*** Inline Deklaration SQL / Variablen ***
 REPORT zzbc_rel740_expression_0000.
 
 BREAK-POINT.

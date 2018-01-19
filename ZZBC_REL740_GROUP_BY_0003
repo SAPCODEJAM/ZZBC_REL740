@@ -1,0 +1,67 @@
+*** Loop at Group by / mit Summierung ***
+REPORT zzbc_rel740_group_by_0003.
+
+TYPES group_keys TYPE STANDARD TABLE OF vbak-vkbur WITH EMPTY KEY.
+
+TYPES:
+  BEGIN OF t_itab,
+    vkorg TYPE vbak-vkorg,
+    spart TYPE vbak-spart,
+    vkbur TYPE vbak-vkbur,
+    sum   TYPE vbak-netwr,
+    max   TYPE vbak-netwr,
+    min   TYPE vbak-netwr,
+    waerk TYPE vbak-waerk,
+  END OF t_itab,
+  lt_itab TYPE SORTED TABLE OF t_itab WITH UNIQUE KEY vkorg spart vkbur waerk.
+
+DATA(lt_itab) = VALUE lt_itab( ).
+
+SELECT vkorg,spart,vkbur,netwr,waerk FROM vbak INTO TABLE @DATA(lt_vbak)
+   UP TO 10000000 ROWS
+  WHERE netwr NE 0
+    AND vkbur NE @space.
+
+BREAK-POINT.
+
+
+LOOP AT lt_vbak ASSIGNING FIELD-SYMBOL(<ls_vbak>) GROUP BY ( vkorg = <ls_vbak>-vkorg
+                                              spart = <ls_vbak>-spart
+                                              waerk = <ls_vbak>-waerk
+                                              size  = GROUP SIZE
+                                              index = GROUP INDEX )
+                                              ASCENDING ASSIGNING FIELD-SYMBOL(<group>).
+
+  LOOP AT GROUP <group> ASSIGNING FIELD-SYMBOL(<ls_vbak_vkbur>)
+                                      GROUP BY ( vkbur = <ls_vbak_vkbur>-vkbur
+                                                            size  = GROUP SIZE
+                                                            index = GROUP INDEX )
+                                             ASCENDING ASSIGNING FIELD-SYMBOL(<vkbur>).
+
+
+    lt_itab = VALUE lt_itab(
+               BASE lt_itab
+               ( vkorg = <group>-vkorg
+                 spart = <group>-spart
+                 waerk = <group>-waerk
+                 vkbur = <vkbur>
+
+                 sum = REDUCE #( INIT sum = 0
+                                 FOR m IN GROUP <vkbur>
+                                 NEXT sum = sum +  m-netwr )
+                 max = REDUCE #( INIT max = 0
+                                 FOR m IN GROUP <vkbur>
+                                 NEXT max = nmax( val1 = max
+                                                  val2 = m-netwr ) )
+                 min = REDUCE #( INIT min = 0
+                                 FOR m IN GROUP <vkbur>
+                                 NEXT min = nmin( val1 = min
+                                                  val2 = m-netwr ) ) )  ).
+
+    cl_demo_output=>write( lt_itab ).
+    FREE: lt_itab.
+
+  ENDLOOP.
+ENDLOOP.
+
+cl_demo_output=>display( ).

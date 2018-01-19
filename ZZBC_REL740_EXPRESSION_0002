@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK: SQL Expressions
-*-----------------------------------------------------------------------
+*** Inline Deklaration SQL / Select-Option anreichern ***
 REPORT zzbc_rel740_expression_0002.
 
 TYPES: BEGIN OF ty_itab,

@@ -1,0 +1,36 @@
+*-----------------------------------------------------------------------
+* ZWECK:  Inline Deklaration SQL
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_expression_0000.
+
+BREAK-POINT.
+
+DATA(lv_integer) = 1.           " Integer
+
+DATA(lv_char)    = 'LiesMich'.  " CHAR
+
+DATA(lv_string)  = |LiesMich|.  " String
+
+*data(lv_Date)    = '20161103'. "geht nicht -> Char
+*data(lv_time)    = '100000'.   "geht nicht -> Char
+*Data(lv_p)       = |100,00|.   "geht nicht -> String
+
+*data(lv_matnr) = value matnr( '009' ). -> geht nicht
+DATA(lv_matnr) = CONV matnr( '009' ).
+
+DATA: lt_mara TYPE TABLE OF mara.
+
+DATA(ls_mara) = VALUE mara( matnr = '009' ).
+APPEND ls_mara TO lt_mara.
+
+ls_mara = VALUE mara( matnr = '010' ). "<-- Deklaration von oben
+APPEND ls_mara TO lt_mara.
+
+
+LOOP AT lt_mara INTO DATA(ls_m).
+ENDLOOP.
+
+LOOP AT lt_mara ASSIGNING FIELD-SYMBOL(<m>). "-> ist 10% schneller als Into
+ENDLOOP.
+
+BREAK-POINT.

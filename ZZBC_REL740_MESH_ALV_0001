@@ -1,0 +1,257 @@
+*** Mesh Variante mit ALV ***
+REPORT zzbc_rel740_mesh_alv_0001.
+
+CLASS lcl_mesh DEFINITION.
+  PUBLIC SECTION.
+    TYPES tt_hsd_vbak TYPE HASHED TABLE OF vbak WITH UNIQUE KEY vbeln.
+    TYPES tt_hsd_vbap TYPE SORTED TABLE OF vbap WITH NON-UNIQUE KEY vbeln.
+    TYPES tt_hsd_mara TYPE HASHED TABLE OF mara WITH UNIQUE KEY matnr.
+    TYPES tt_hsd_makt TYPE HASHED TABLE OF makt WITH UNIQUE KEY matnr spras.
+    TYPES tt_hsd_marc TYPE SORTED TABLE OF marc WITH NON-UNIQUE KEY matnr.
+    TYPES: BEGIN OF MESH mesh,
+             vbaks TYPE tt_hsd_vbak
+               ASSOCIATION to_position TO vbaps ON vbeln = vbeln,
+             vbaps TYPE tt_hsd_vbap
+               ASSOCIATION to_material TO maras ON matnr = matnr
+               ASSOCIATION to_mattext  TO makts ON matnr = matnr,
+             maras TYPE tt_hsd_mara
+               ASSOCIATION to_mattext  TO makts ON matnr = matnr
+               ASSOCIATION to_werke    TO marcs ON matnr = matnr,
+             makts TYPE tt_hsd_makt,
+             marcs TYPE tt_hsd_marc,
+           END OF MESH mesh.
+    METHODS constructor IMPORTING it_vbeln TYPE range_vbeln_va_tab.
+    METHODS cycle       IMPORTING iv_cycle_to    TYPE string
+                        RETURNING VALUE(rr_data) TYPE REF TO data.
+    METHODS get_init_data RETURNING VALUE(rt_data) TYPE vbak_t.
+  PRIVATE SECTION.
+    DATA ms_mesh   TYPE mesh.
+    DATA mv_cycled_from TYPE string.
+ENDCLASS.
+CLASS lcl_mesh IMPLEMENTATION.
+  METHOD constructor.
+    IF it_vbeln IS INITIAL.
+*      TODO raise error
+    ENDIF.
+    SELECT *
+      INTO TABLE me->ms_mesh-vbaks
+      FROM vbak
+      WHERE vbeln IN it_vbeln.
+    IF sy-dbcnt = 0.
+*      TODO raise error
+    ENDIF.
+    SELECT *
+      INTO TABLE me->ms_mesh-vbaps
+      FROM vbap
+       FOR ALL ENTRIES IN me->ms_mesh-vbaks
+      WHERE vbeln = me->ms_mesh-vbaks-vbeln.
+    IF sy-dbcnt = 0.
+*      TODO raise error
+    ENDIF.
+    SELECT *
+      INTO TABLE me->ms_mesh-maras
+      FROM mara
+       FOR ALL ENTRIES IN me->ms_mesh-vbaps
+      WHERE matnr = me->ms_mesh-vbaps-matnr.
+    IF sy-dbcnt = 0.
+*      TODO raise error
+    ENDIF.
+    SELECT *
+      INTO TABLE me->ms_mesh-makts
+      FROM makt
+       FOR ALL ENTRIES IN me->ms_mesh-maras
+     WHERE matnr = me->ms_mesh-maras-matnr
+       AND spras = 'D'.
+    IF sy-dbcnt = 0.
+*      TODO raise error
+    ENDIF.
+    SELECT *
+      INTO TABLE me->ms_mesh-marcs
+      FROM marc
+       FOR ALL ENTRIES IN me->ms_mesh-maras
+     WHERE matnr = me->ms_mesh-maras-matnr.
+    IF sy-dbcnt = 0.
+*      TODO raise error
+    ENDIF.
+  ENDMETHOD.
+  METHOD get_init_data.
+    rt_data = me->ms_mesh-vbaks.
+    me->mv_cycled_from = 'VBAK' .
+  ENDMETHOD.
+
+  METHOD cycle.
+    FIELD-SYMBOLS <data> TYPE STANDARD TABLE.
+    CASE iv_cycle_to.
+      WHEN 'VBAK'.
+        DATA(lt_vbak) = VALUE tt_vbak( ).
+        CASE me->mv_cycled_from.
+          WHEN 'MARC'.
+            LOOP AT me->ms_mesh-marcs ASSIGNING FIELD-SYMBOL(<marc>).
+              LOOP AT me->ms_mesh-marcs\^to_werke~maras[ <marc> ]\^to_material~vbaps[ ]\^to_position~vbaks[ ]
+                ASSIGNING FIELD-SYMBOL(<vbak>).
+                CHECK NOT line_exists( lt_vbak[ vbeln = <vbak>-vbeln ] ).
+                lt_vbak = VALUE #( BASE lt_vbak ( <vbak> ) ).
+              ENDLOOP.
+            ENDLOOP.
+          WHEN 'VBAP'.
+            LOOP AT me->ms_mesh-vbaps ASSIGNING FIELD-SYMBOL(<vbap>).
+              LOOP AT me->ms_mesh-vbaps\^to_position~vbaks[ <vbap> ] ASSIGNING <vbak>.
+                CHECK NOT line_exists( lt_vbak[ vbeln = <vbak>-vbeln ] ).
+                lt_vbak = VALUE #( BASE lt_vbak ( <vbak> ) ).
+              ENDLOOP.
+            ENDLOOP.
+        ENDCASE.
+        CREATE DATA rr_data TYPE vbak_t.
+        ASSIGN rr_data->* TO <data>.
+        <data> = lt_vbak.
+      WHEN 'VBAP'.
+        DATA(lt_vbap) = VALUE tt_vbap( ).
+        CASE me->mv_cycled_from.
+          WHEN 'VBAK'.
+            LOOP AT me->ms_mesh-vbaks ASSIGNING <vbak>.
+              LOOP AT me->ms_mesh-vbaks\to_position[ <vbak> ] ASSIGNING <vbap>.
+                lt_vbap = VALUE #( BASE lt_vbap ( <vbap> ) ).
+              ENDLOOP.
+            ENDLOOP.
+          WHEN 'MARA'.
+            LOOP AT me->ms_mesh-maras ASSIGNING FIELD-SYMBOL(<mara>).
+              LOOP AT me->ms_mesh-maras\^to_material~vbaps[ <mara> ]  ASSIGNING <vbap>.
+                lt_vbap = VALUE #( BASE lt_vbap ( <vbap> ) ).
+              ENDLOOP.
+            ENDLOOP.
+        ENDCASE.
+        CREATE DATA rr_data TYPE vbap_t.
+        ASSIGN rr_data->* TO <data>.
+        <data> = lt_vbap.
+      WHEN 'MARA'.
+        DATA(lt_mara) = VALUE mara_tt( ).
+        CASE me->mv_cycled_from.
+          WHEN 'VBAP'.
+            LOOP AT me->ms_mesh-vbaps ASSIGNING <vbap>.
+              LOOP AT me->ms_mesh-vbaps\to_material[ <vbap> ] ASSIGNING <mara>.
+                lt_mara = VALUE #( BASE lt_mara ( <mara> ) ).
+              ENDLOOP.
+            ENDLOOP.
+          WHEN 'MARC'.
+            LOOP AT me->ms_mesh-marcs ASSIGNING <marc>.
+              LOOP AT me->ms_mesh-marcs\^to_werke~maras[ <marc> ] ASSIGNING <mara>.
+                lt_mara = VALUE #( BASE lt_mara ( <mara> ) ).
+              ENDLOOP.
+            ENDLOOP.
+        ENDCASE.
+        CREATE DATA rr_data TYPE mara_tt.
+        ASSIGN rr_data->* TO <data>.
+        <data> = lt_mara.
+      WHEN 'MARC'.
+        DATA(lt_marc) = VALUE marc_tt( ).
+        CASE me->mv_cycled_from.
+          WHEN 'MARA'.
+            LOOP AT me->ms_mesh-maras ASSIGNING <mara>.
+              LOOP AT me->ms_mesh-maras\to_werke[ <mara> ] ASSIGNING <marc>.
+                lt_marc = VALUE #( BASE lt_marc ( <marc> ) ).
+              ENDLOOP.
+            ENDLOOP.
+          WHEN 'VBAK'.
+            LOOP AT me->ms_mesh-vbaks ASSIGNING <vbak>.
+              LOOP AT me->ms_mesh-vbaks\to_position[ <vbak> ]\to_material[ ]\to_werke[ ] ASSIGNING <marc>.
+                lt_marc = VALUE #( BASE lt_marc ( <marc> ) ).
+              ENDLOOP.
+            ENDLOOP.
+        ENDCASE.
+        CREATE DATA rr_data TYPE marc_tt.
+        ASSIGN rr_data->* TO <data>.
+        <data> = lt_marc.
+    ENDCASE.
+    me->mv_cycled_from = iv_cycle_to.
+  ENDMETHOD.
+ENDCLASS.
+CLASS lcl_alv DEFINITION.
+  PUBLIC SECTION.
+    METHODS constructor IMPORTING io_mesh TYPE REF TO lcl_mesh.
+    METHODS set_alv_data .
+    METHODS display.
+  PRIVATE SECTION.
+    CLASS-DATA mo_instance TYPE REF TO lcl_alv.
+    DATA mo_alv       TYPE REF TO cl_salv_table.
+    DATA mo_container TYPE REF TO cl_gui_container.
+    DATA mr_data      TYPE REF TO data.
+    DATA mo_mesh      TYPE REF TO lcl_mesh.
+    DATA mt_cycle     TYPE stringtab.
+    DATA mr_cycled    TYPE REF TO string.
+    METHODS cycle IMPORTING iv_direction TYPE salv_de_function.
+    METHODS set_alv_title IMPORTING iv_title TYPE lvc_title.
+
+    METHODS on_button_click FOR EVENT added_function OF cl_salv_events_table IMPORTING e_salv_function.
+ENDCLASS.
+CLASS lcl_alv IMPLEMENTATION.
+  METHOD constructor.
+    me->mo_mesh   = io_mesh.
+    me->mt_cycle  = VALUE #( ( |VBAK| ) ( |VBAP| ) ( |MARA| ) ( |MARC| ) ).
+    me->mr_cycled = REF #( me->mt_cycle[ 1 ] ).
+    FIELD-SYMBOLS <data> TYPE STANDARD TABLE.
+    CREATE DATA me->mr_data TYPE vbak_t.
+    ASSIGN me->mr_data->* TO <data>.
+    <data> = me->mo_mesh->get_init_data( ).
+    me->mo_container = NEW cl_gui_docking_container( ratio = 95
+                                                     side  = cl_gui_docking_container=>dock_at_bottom
+                                                     no_autodef_progid_dynnr = abap_true ).
+    TRY.
+        cl_salv_table=>factory( EXPORTING r_container  = me->mo_container
+                                IMPORTING r_salv_table = me->mo_alv
+                                CHANGING  t_table      = <data> ).
+        me->mo_alv->get_functions( )->add_function( name = 'PREV' icon = '@9S@' tooltip = 'Zurück' position = 1 ).
+        me->mo_alv->get_functions( )->add_function( name = 'NEXT' icon = '@9T@' tooltip = 'Weiter' position = 1 ).
+        SET HANDLER me->on_button_click FOR me->mo_alv->get_event( ).
+        me->set_alv_title( CONV #( me->mr_cycled->* ) ).
+      CATCH cx_salv_msg cx_salv_wrong_call cx_salv_existing.
+    ENDTRY.
+  ENDMETHOD.
+  METHOD cycle.
+    DATA(lv_idx) = line_index( me->mt_cycle[ table_line = me->mr_cycled->* ] ).
+    lv_idx = SWITCH #( iv_direction WHEN 'NEXT' THEN COND #( WHEN lv_idx = lines( me->mt_cycle )
+                                                             THEN 1
+                                                             ELSE lv_idx + 1 )
+                                    WHEN 'PREV' THEN COND #( WHEN lv_idx = 1
+                                                             THEN lines( me->mt_cycle )
+                                                             ELSE lv_idx - 1 )
+                     ).
+    me->mr_cycled = REF #( me->mt_cycle[ lv_idx ] ).
+    cl_gui_cfw=>set_new_ok_code( 'REFR' ).
+  ENDMETHOD.
+  METHOD set_alv_data.
+    FIELD-SYMBOLS <data> TYPE STANDARD TABLE.
+    me->mr_data = me->mo_mesh->cycle( me->mr_cycled->* ).
+    ASSIGN me->mr_data->* TO <data>.
+    me->set_alv_title( CONV #( me->mr_cycled->* ) ).
+    TRY.
+        me->mo_alv->set_data( CHANGING t_table = <data> ).
+      CATCH cx_salv_no_new_data_allowed.
+    ENDTRY.
+    me->mo_alv->refresh( ).
+  ENDMETHOD.
+  METHOD set_alv_title.
+    me->mo_alv->get_display_settings( )->set_list_header( iv_title ).
+  ENDMETHOD.
+
+  METHOD display.
+    me->mo_alv->display( ).
+  ENDMETHOD.
+  METHOD on_button_click.
+    me->cycle( e_salv_function ).
+  ENDMETHOD.
+ENDCLASS.
+
+INITIALIZATION.
+  DATA lo_alv TYPE REF TO lcl_alv.
+  DATA(lv_vbeln) = VALUE vbak-vbeln( ).
+  SELECT-OPTIONS s_vbeln FOR lv_vbeln.
+
+AT SELECTION-SCREEN OUTPUT.
+  IF s_vbeln[] IS INITIAL.EXIT.ENDIF.
+  IF lo_alv IS BOUND.
+    lo_alv->set_alv_data( ).
+  ELSE.
+    DATA(lo_mesh) = NEW lcl_mesh( s_vbeln[] ).
+    lo_alv = NEW #( lo_mesh ).
+    lo_alv->display( ).
+  ENDIF.

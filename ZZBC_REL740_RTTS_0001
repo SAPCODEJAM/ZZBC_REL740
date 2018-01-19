@@ -1,0 +1,55 @@
+REPORT zzbc_rel740_rtts_0001.
+
+PARAMETERS: p_tab TYPE dd02l-tabname .
+
+FIELD-SYMBOLS: <itab>  TYPE ANY TABLE.
+
+DATA: ls_itab TYPE REF TO data,
+      lt_itab TYPE REF TO data,
+      lr_out  TYPE REF TO cl_salv_table.
+*"---------------------------------------------------------------------
+START-OF-SELECTION.
+*"---------------------------------------------------------------------
+
+   BREAK-POINT.
+
+*-Beschreibung des Typs eines Datenobjekts
+  DATA(lv_line_type) = CAST cl_abap_structdescr( cl_abap_typedescr=>describe_by_name( p_tab ) ) .
+
+*-Factory-Methode zur Tabellentyperzeugung
+  DATA(lv_tabletype) = cl_abap_tabledescr=>create( p_line_type = lv_line_type ).
+
+*-Refrenzierung
+*-hier kann man noch keine Inline Deklaration erstellen
+  CREATE DATA lt_itab TYPE HANDLE lv_tabletype.
+  CREATE DATA ls_itab TYPE HANDLE lv_line_type.
+
+*-Tabelle Refrenzieren
+  ASSIGN lt_itab->* TO <itab>.
+
+  SELECT *
+  FROM (p_tab)
+  INTO TABLE <itab>.
+
+  TRY.
+      cl_salv_table=>factory(
+         IMPORTING
+           r_salv_table = lr_out
+         CHANGING
+           t_table      = <itab> ).
+    CATCH cx_salv_msg .
+  ENDTRY.
+
+  DATA(lv_header) = NEW cl_salv_form_layout_grid( ).
+  DATA(lv_label) = lv_header->create_label( row = 1 column = 1 ).
+
+
+  DATA(lv_tab) = |Tabellen Daten: { p_tab }|.
+  lv_label->set_text( lv_tab ).
+  lr_out->set_top_of_list( lv_header ).
+  lr_out->set_top_of_list_print( lv_header ).
+  lr_out->display( ).
+
+**clearing the field symbols
+  UNASSIGN : <itab>.
+  FREE lr_out.

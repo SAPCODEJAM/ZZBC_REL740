@@ -1,0 +1,24 @@
+REPORT zzbc_rel740_expression_0011 .
+
+BREAK-POINT.
+
+DATA(lt_test) = VALUE mm_t_kna1( ( kunnr = '1'
+                                   name1 = 'Muster'
+                                   name2 = 'Max' )
+                                   ( kunnr = '2'
+                                   name1 = 'Nochmal'
+                                   name2 = 'Da' ) ).
+
+DATA(lr_msg_arv) = cl_bsp_wd_message_service=>get_instance( ).
+
+IF lt_test IS NOT INITIAL.
+
+  lr_msg_arv->add_message(
+  EXPORTING
+    iv_msg_type    = 'E'
+    iv_msg_id      = '00'
+    iv_msg_number  = '000'
+    iv_msg_v1      = lt_test[ 1 ]-kunnr ).
+
+
+ENDIF.

@@ -1,0 +1,28 @@
+*** Inline Deklaration / Konditionaloperator COND ***
+REPORT zzbc_rel740_expression_0006.
+
+BREAK-POINT.
+
+DO 2 TIMES.
+
+  DATA(lv_ersda) = sy-datum.
+  DATA(lv_mtart) = 'FOOD'.
+
+  IF sy-index = 2.
+    lv_ersda = sy-datum - 1.
+  ENDIF.
+
+  DATA(lv_status) =
+    COND #( WHEN lv_ersda = sy-datum AND lv_mtart = 'FOOD'
+            THEN 'Frischware'
+
+            WHEN lv_ersda < sy-datum AND lv_mtart = 'FOOD'
+            THEN 'Gammelware'
+
+            ELSE 'Ware' ).
+
+  cl_demo_output=>write( lv_status ).
+
+  BREAK-POINT.
+
+ENDDO.

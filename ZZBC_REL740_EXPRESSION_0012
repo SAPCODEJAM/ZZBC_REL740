@@ -1,0 +1,40 @@
+*** Inline Deklaration / Parameterübergabe ***
+REPORT zzbc_rel740_expression_0012 .
+
+PARAMETERS p_mtart TYPE mara-mtart.
+PARAMETERS p_num   TYPE i DEFAULT 200.
+
+INITIALIZATION.
+  TYPES: BEGIN OF ts_materials,
+           matnr TYPE matnr,
+           mtart TYPE mtart,
+           matkl TYPE matkl,
+           maktx TYPE makt-maktx,
+         END OF ts_materials.
+  TYPES: tt_srt_materials TYPE SORTED TABLE OF ts_materials WITH NON-UNIQUE KEY mtart.
+  DATA(lt_materials) = VALUE tt_srt_materials( ).
+
+START-OF-SELECTION.
+  SELECT mara~matnr,mara~mtart,mara~matkl,makt~maktx
+    FROM mara
+    JOIN makt ON mara~matnr = makt~matnr
+    INTO TABLE @lt_materials
+      UP TO @p_num ROWS
+   WHERE makt~spras = 'D'.
+
+  p_num = sy-dbcnt.
+
+  DATA(lt_mtart)           = FILTER #( lt_materials WHERE mtart = p_mtart ).
+  DATA(lt_disjunct_mtart1) = FILTER #( lt_materials EXCEPT IN lt_mtart WHERE mtart = mtart ).
+  DATA(lt_disjunct_mtart2) = FILTER #( lt_materials IN lt_mtart WHERE mtart <> mtart ).
+
+  DATA(lo_out) = cl_demo_output=>new( ).
+
+  lo_out->begin_section( |Geladene Sätze: { p_num }| ).
+  lo_out->begin_section( |Filter MaterialArt: { p_mtart }| ).
+  lo_out->write( lt_mtart ).
+  lo_out->begin_section( |Filter EXCEPT MaterialArt: { p_mtart }| ).
+  lo_out->write( lt_disjunct_mtart1 ).
+  lo_out->begin_section( |Filter <> MaterialArt: { p_mtart }| ).
+  lo_out->write( lt_disjunct_mtart2 ).
+  lo_out->display( ).

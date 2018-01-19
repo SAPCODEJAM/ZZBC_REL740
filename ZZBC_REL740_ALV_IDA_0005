@@ -1,6 +1,4 @@
-*-----------------------------------------------------------------------
-* ZWECK:  ALV IDA
-*-----------------------------------------------------------------------
+*** IDA / ALV Docking und 2 IDA ALV ***
 REPORT zzbc_rel740_alv_ida_0005.
 
 DATA: lo_cnt_bottom TYPE REF TO cl_gui_docking_container.

@@ -1,0 +1,16 @@
+*-----------------------------------------------------------------------
+* ZWECK:  Inline Deklaration SQL
+*-----------------------------------------------------------------------
+REPORT zzbc_rel740_expression_0001.
+
+* tiefe Strukturen
+SELECT mara~matnr as leadings_matnr,mara~*,marc~*,mard~*
+  FROM mara
+  JOIN marc
+  ON marc~matnr = mara~matnr
+  JOIN mard
+  ON mard~matnr = mara~matnr
+  AND mard~werks = marc~werks
+   INTO TABLE @DATA(lt_materials) UP TO 10 ROWS.
+
+BREAK-POINT.
